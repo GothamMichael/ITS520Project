@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 def cook_time_physics(temp, weight, moisture):
     return (weight * 0.8) + (moisture * 5) + (300 / (temp + 1))
@@ -56,3 +57,20 @@ def generate_recipe_sample():
         "flavor": flavor,
         "calories": calories
     }
+    
+ def generate_dataset(n_samples=5000):
+    samples = [generate_recipe_sample() for _ in range(n_samples)]
+    df = pd.DataFrame(samples)
+    return df
+
+def validate_physics(df):
+    assert df["cook_time"].min() > 0
+    assert df["calories"].min() > 0
+    assert df["moisture"].between(0, 1).all()
+    assert df["temp"].between(150, 500).all()
+
+    print("Physics checks passed!")
+
+def save_metadata():
+    with open("recipe_physics_metadata.txt", "w") as f:
+        f.write("...contents above...")
