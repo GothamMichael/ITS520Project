@@ -17,51 +17,15 @@ np.random.seed(42)
 # Synthetic recipe generator
 # ---------------------------
 INGREDIENTS = [
-    "flour", "sugar", "butter", "eggs", "milk", "cocoa", "yeast"
+    "temp", "weight", "moisture",
+    "umami", "sweet", "sour", "spice",
+    "fat_g", "carb_g", "protein_g"
 ]
-PROPERTIES = ["sweetness", "moisture", "density"]
-N_INPUTS = len(INGREDIENTS)
-N_OUTPUTS = len(PROPERTIES)
 
+PROPERTIES = ["cook_time", "flavor", "calories"]
 
-def generate_synthetic_data(N=5000):
-    # Generate ingredient raw values in plausible ranges
-    X = np.zeros((N, N_INPUTS), dtype=np.float32)
-    X[:, 0] = np.random.uniform(100, 500, size=N)   # flour (g)
-    X[:, 1] = np.random.uniform(10, 300, size=N)    # sugar (g)
-    X[:, 2] = np.random.uniform(20, 200, size=N)    # butter (g)
-    X[:, 3] = np.random.uniform(1, 5, size=N)       # eggs (count)
-    X[:, 4] = np.random.uniform(50, 400, size=N)    # milk (mL)
-    X[:, 5] = np.random.uniform(0, 100, size=N)     # cocoa (g)
-    X[:, 6] = np.random.uniform(0, 12, size=N)      # yeast (g)
-
-    # Compute normalized-ish properties (add small noise)
-    flour, sugar, butter, eggs, milk, cocoa, yeast = X.T
-
-    sweetness = (
-        0.6 * (sugar / 300.0) +
-        0.3 * (cocoa / 100.0) +
-        0.1 * (butter / 200.0) +
-        np.random.normal(0, 0.02, size=N)
-    )
-
-    moisture = (
-        0.5 * (milk / 400.0) +
-        0.2 * (butter / 200.0) +
-        0.2 * (eggs / 5.0) +
-        np.random.normal(0, 0.02, size=N)
-    )
-
-    density = (
-        0.5 * (flour / 500.0) -
-        0.3 * (yeast / 12.0) +
-        0.2 * (eggs / 5.0) +
-        np.random.normal(0, 0.02, size=N)
-    )
-
-    Y = np.vstack([sweetness, moisture, density]).T.astype(np.float32)
-    return X.astype(np.float32), Y
-
+N_INPUTS = 10       # you have 10 inputs
+N_OUTPUTS = 3       # you have 3 outputs
 
 # ---------------------------
 # Data prep
@@ -368,13 +332,23 @@ if __name__ == "__main__":
 
     # 2) Define clamp_min / clamp_max (example values; shape [1, N_INPUTS])
     # NOTE: use realistic recipe ranges (same units as generator above)
-    clamp_min = torch.tensor([[150., 50., 0.05, 0., 0., 0., 0., 0., 0., 0.]], device=DEVICE)
-    clamp_max = torch.tensor([[500., 600., 0.75, 10., 10., 10., 10., 40., 100., 50.]], device=DEVICE)
+    clamp_min = torch.tensor([[
+        150., 50., 0.05,
+        0., 0., 0., 0.,
+        0., 0., 0.
+    ]], device=DEVICE)
+
+    clamp_max = torch.tensor([[
+        500., 600., 0.75,
+        10., 10., 10., 10.,
+        40., 100., 50.
+    ]], device=DEVICE)
+
 
 
     # 3) Example target (in real units): sweetness (~0..1), moisture (~0..1), density (~0..1)
     # But our synthetic outputs are already in roughly 0..1 range; so choose targets in that range.
-    target_output_not_scaled = torch.tensor([[0.85, 0.6, 0.35]], dtype=torch.float32)  # desired real-unit properties
+    target_output_not_scaled = torch.tensor([[300., 1.0, 600.0]], dtype=torch.float32)  # desired real-unit properties
     overshoot_margin_not_scaled = torch.tensor([0.05, 0.1, 0.1], dtype=torch.float32)     # allowable overshoot in real units
     # constraint mask: 2 = >=, 3 = bounded range, 1 = equality, 0 = no constraint
     constraint_mask = torch.tensor([2, 2, 2], dtype=torch.int32)  # example: require >= for all three
@@ -403,5 +377,6 @@ if __name__ == "__main__":
         print({PROPERTIES[i]: float(final_y[0, i]) for i in range(N_OUTPUTS)})
     else:
         print("No feasible input found.")
+
 
 
