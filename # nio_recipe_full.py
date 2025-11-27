@@ -368,8 +368,9 @@ if __name__ == "__main__":
 
     # 2) Define clamp_min / clamp_max (example values; shape [1, N_INPUTS])
     # NOTE: use realistic recipe ranges (same units as generator above)
-    clamp_min = torch.tensor([[100., 10., 20., 1., 50., 0., 0.]], device=DEVICE)
-    clamp_max = torch.tensor([[500., 300., 200., 5., 400., 100., 12.]], device=DEVICE)
+    clamp_min = torch.tensor([[150., 50., 0.05, 0., 0., 0., 0., 0., 0., 0.]], device=DEVICE)
+    clamp_max = torch.tensor([[500., 600., 0.75, 10., 10., 10., 10., 40., 100., 50.]], device=DEVICE)
+
 
     # 3) Example target (in real units): sweetness (~0..1), moisture (~0..1), density (~0..1)
     # But our synthetic outputs are already in roughly 0..1 range; so choose targets in that range.
@@ -402,4 +403,5 @@ if __name__ == "__main__":
         print({PROPERTIES[i]: float(final_y[0, i]) for i in range(N_OUTPUTS)})
     else:
         print("No feasible input found.")
+
 
