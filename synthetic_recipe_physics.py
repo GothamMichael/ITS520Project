@@ -58,7 +58,7 @@ def generate_recipe_sample():
         "calories": calories
     }
     
- def generate_dataset(n_samples=5000):
+def generate_dataset(n_samples=5000):
     samples = [generate_recipe_sample() for _ in range(n_samples)]
     df = pd.DataFrame(samples)
     return df
@@ -87,3 +87,4 @@ def load_physics_dataset_as_numpy(n_samples=5000):
 
     Y = df[["cook_time", "flavor", "calories"]].values.astype(np.float32)
     return X, Y
+
