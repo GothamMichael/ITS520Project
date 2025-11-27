@@ -67,7 +67,8 @@ def generate_synthetic_data(N=5000):
 # Data prep
 # ---------------------------
 def prepare_loaders(N=5000, batch_size=64):
-    X_np, Y_np = generate_synthetic_data(N)
+    from synthetic_recipe_physics import load_physics_dataset_as_numpy
+    X_np, Y_np = load_physics_dataset_as_numpy(N)
     X_train, X_test, y_train, y_test = train_test_split(
         X_np, Y_np, test_size=0.2, random_state=42
     )
@@ -401,3 +402,4 @@ if __name__ == "__main__":
         print({PROPERTIES[i]: float(final_y[0, i]) for i in range(N_OUTPUTS)})
     else:
         print("No feasible input found.")
+
