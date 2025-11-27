@@ -74,3 +74,16 @@ def validate_physics(df):
 def save_metadata():
     with open("recipe_physics_metadata.txt", "w") as f:
         f.write("...contents above...")
+
+def load_physics_dataset_as_numpy(n_samples=5000):
+    df = generate_dataset(n_samples)
+    validate_physics(df)
+
+    X = df[[
+        "temp", "weight", "moisture",
+        "umami", "sweet", "sour", "spice",
+        "fat_g", "carb_g", "protein_g"
+    ]].values.astype(np.float32)
+
+    Y = df[["cook_time", "flavor", "calories"]].values.astype(np.float32)
+    return X, Y
