@@ -172,7 +172,7 @@ def constraint_loss(y_pred_scaled, y_target_scaled, mask, overshoot_margin, weig
     y_pred_scaled: model outputs (scaled) shape [1, n_outputs]
     y_target_scaled: scaled target (same shape)
     mask: tensor of codes: 0=no constraint,1=eq,2=>=,3=range
-    overshoot_margin: in scaled units (same size) or raw? We'll assume scaled here for simplicity.
+    overshoot_margin: already scaled by NIO before calling this function.
     weights: per-output weights
     """
     loss = 0.0
@@ -230,9 +230,10 @@ def nio_optimize(
     target_scaled = (target_output_not_scaled.to(DEVICE) - y_means) / y_stds
     overshoot_scaled = overshoot_margin_not_scaled.to(DEVICE) / y_stds
 
-    # prepare bounds in scaled space for mask==3
-    lower_bounds_glob_scaled = ((target_output_not_scaled.to(DEVICE) - (overshoot_margin_not_scaled * 0)) - y_means) / y_stds
-    upper_bounds_glob_scaled = ((target_output_not_scaled.to(DEVICE) + overshoot_margin_not_scaled) - y_means) / y_stds
+    # Correct bounded-range conversion
+    lower_bounds_glob_scaled = (target_output_not_scaled.to(DEVICE) - overshoot_margin_not_scaled.to(DEVICE) - y_means) / y_stds
+    upper_bounds_glob_scaled = (target_output_not_scaled.to(DEVICE) + overshoot_margin_not_scaled.to(DEVICE) - y_means) / y_stds
+
 
     # prepare get_x mapping
     clamp_min = clamp_min.to(DEVICE)
@@ -301,12 +302,10 @@ def nio_optimize(
                 if final_output_descaled[0, i] < lower - 1e-6 or final_output_descaled[0, i] > upper + 1e-6:
                     violations[0, i] = True
             elif constraint_mask[i] == 3:  # within [lower_bounds_glob, upper_bounds_glob]
-                lower = (lower_bounds_glob_scaled[0, i] * y_stds[i] + y_means[i])  # convert back, simpler to use not-scaled values
-                upper = (upper_bounds_glob_scaled[0, i] * y_stds[i] + y_means[i])
-                # but since lower_bounds_glob_scaled was derived from target in this script, we can compute directly:
-                lower_real = (lower_bounds_glob_scaled[0, i] * y_stds[i] + y_means[i])
-                upper_real = (upper_bounds_glob_scaled[0, i] * y_stds[i] + y_means[i])
-                if final_output_descaled[0, i] < lower_real - 1e-6 or final_output_descaled[0, i] > upper_real + 1e-6:
+                lower_real = target_output_not_scaled[0, i] - overshoot_margin_not_scaled[i]
+                upper_real = target_output_not_scaled[0, i] + overshoot_margin_not_scaled[i]
+                if (final_output_descaled[0, i] < lower_real - 1e-6 or
+                    final_output_descaled[0, i] > upper_real + 1e-6):
                     violations[0, i] = True
 
         # If no violations and an extra domain check (e.g., o_fta safety), accept
@@ -377,6 +376,7 @@ if __name__ == "__main__":
         print({PROPERTIES[i]: float(final_y[0, i]) for i in range(N_OUTPUTS)})
     else:
         print("No feasible input found.")
+
 
 
 
