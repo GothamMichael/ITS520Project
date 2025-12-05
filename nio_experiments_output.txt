@@ -1,0 +1,82 @@
+Physics checks passed!
+[Train] Epoch 1/200 loss=0.510694
+[Train] Epoch 20/200 loss=0.001456
+[Train] Epoch 40/200 loss=0.000476
+[Train] Epoch 60/200 loss=0.000379
+[Train] Epoch 80/200 loss=0.000368
+[Train] Epoch 100/200 loss=0.000376
+[Train] Epoch 120/200 loss=0.000371
+[Train] Epoch 140/200 loss=0.000387
+[Train] Epoch 160/200 loss=0.000379
+[Train] Epoch 180/200 loss=0.000364
+[Train] Epoch 200/200 loss=0.000375
+[Eval] Test MSE (descaled) = 9.776178
+
+=== Scenario: Normal dinner ===
+[attempt 1] step 0 loss 14.550714
+[attempt 1] step 2000 loss 0.017549
+[attempt 1] step 4000 loss 0.017152
+Attempt 1 failed; violations: True, o_fta=81.21
+[attempt 2] step 0 loss 14.550714
+[attempt 2] step 2000 loss 0.017549
+[attempt 2] step 4000 loss 0.017152
+Attempt 2 failed; violations: True, o_fta=81.21
+[attempt 3] step 0 loss 14.550714
+[attempt 3] step 2000 loss 0.017549
+[attempt 3] step 4000 loss 0.017152
+Attempt 3 failed; violations: True, o_fta=81.21
+Result: NO FEASIBLE RECIPE FOUND under these constraints.
+
+=== Scenario: Quick snack ===
+[attempt 1] step 0 loss 17.665066
+[attempt 1] step 2000 loss 0.037937
+[attempt 1] step 4000 loss 0.037375
+Attempt 1 failed; violations: True, o_fta=47.62
+[attempt 2] step 0 loss 17.665066
+[attempt 2] step 2000 loss 0.037937
+[attempt 2] step 4000 loss 0.037375
+Attempt 2 failed; violations: True, o_fta=47.62
+[attempt 3] step 0 loss 17.665066
+[attempt 3] step 2000 loss 0.037937
+[attempt 3] step 4000 loss 0.037375
+Attempt 3 failed; violations: True, o_fta=47.62
+Result: NO FEASIBLE RECIPE FOUND under these constraints.
+
+=== Scenario: Unrealistic diet fantasy ===
+[attempt 1] step 0 loss 33.752346
+[attempt 1] step 2000 loss 0.305394
+[attempt 1] step 4000 loss 0.301444
+Attempt 1 failed; violations: True, o_fta=42.47
+[attempt 2] step 0 loss 33.752346
+[attempt 2] step 2000 loss 0.305394
+[attempt 2] step 4000 loss 0.301444
+Attempt 2 failed; violations: True, o_fta=42.47
+[attempt 3] step 0 loss 33.752346
+[attempt 3] step 2000 loss 0.305394
+[attempt 3] step 4000 loss 0.301444
+Attempt 3 failed; violations: True, o_fta=42.47
+Result: NO FEASIBLE RECIPE FOUND under these constraints.
+
+=== Scenario: Cook-time only (easy mode) ===
+[attempt 1] step 0 loss 0.000000
+[attempt 1] step 2000 loss 0.000000
+[attempt 1] step 4000 loss 0.000000
+Success after attempt 1
+Result: feasible recipe found.
+
+Inputs (ingredients):
+  temp       =  324.822
+  weight     =  325.152
+  moisture   =    0.400
+  umami      =    5.000
+  sweet      =    5.000
+  sour       =    5.000
+  spice      =    5.001
+  fat_g      =   19.993
+  carb_g     =   49.981
+  protein_g  =   24.995
+
+Outputs (properties):
+  cook_time  =  263.166
+  flavor     =    9.500
+  calories   =  479.716
