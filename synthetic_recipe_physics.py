@@ -22,7 +22,7 @@ def calories_from_macros(fat_g, carb_g, protein_g):
     )
 
 def generate_recipe_sample():
-    # Step 1: Randomly sample input features
+    # Randomly sample input features
     temp = np.random.uniform(150, 500)
     weight = np.random.uniform(50, 600)
     moisture = np.random.uniform(0.05, 0.75)
@@ -36,12 +36,12 @@ def generate_recipe_sample():
     carb_g = np.random.uniform(0, 100)
     protein_g = np.random.uniform(0, 50)
 
-    # Step 2: Use physics‑rules to compute outputs
+    # Use physics‑rules to compute outputs
     cook_time = cook_time_physics(temp, weight, moisture)
     flavor = flavor_intensity(umami, sweet, sour, spice)
     calories = calories_from_macros(fat_g, carb_g, protein_g)
 
-    # Step 3: Return well‑formatted sample
+    # Return well‑formatted sample
     return {
         "temp": temp,
         "weight": weight,
@@ -87,4 +87,5 @@ def load_physics_dataset_as_numpy(n_samples=5000):
 
     Y = df[["cook_time", "flavor", "calories"]].values.astype(np.float32)
     return X, Y
+
 
