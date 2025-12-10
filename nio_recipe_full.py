@@ -1,4 +1,3 @@
-# nio_recipe_full.py
 import numpy as np
 import torch
 import torch.nn as nn
@@ -6,16 +5,12 @@ import torch.optim as optim
 from torch.utils.data import TensorDataset, DataLoader
 from sklearn.model_selection import train_test_split
 
-# ---------------------------
 # Config / Device
-# ---------------------------
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 torch.manual_seed(42)
 np.random.seed(42)
 
-# ---------------------------
 # Synthetic recipe generator
-# ---------------------------
 INGREDIENTS = [
     "temp", "weight", "moisture",
     "umami", "sweet", "sour", "spice",
@@ -24,12 +19,10 @@ INGREDIENTS = [
 
 PROPERTIES = ["cook_time", "flavor", "calories"]
 
-N_INPUTS = 10       # you have 10 inputs
-N_OUTPUTS = 3       # you have 3 outputs
+N_INPUTS = 10       
+N_OUTPUTS = 3      
 
-# ---------------------------
 # Data prep
-# ---------------------------
 def prepare_loaders(N=5000, batch_size=64):
     from synthetic_recipe_physics import load_physics_dataset_as_numpy
     X_np, Y_np = load_physics_dataset_as_numpy(N)
@@ -67,9 +60,7 @@ def prepare_loaders(N=5000, batch_size=64):
     return train_dl, test_dl, stats
 
 
-# ---------------------------
 # Model definitions
-# ---------------------------
 class ResidualNet(nn.Module):
     def __init__(self, x_means, x_stds, y_means, y_stds, dropout_rate=0.1):
         super().__init__()
@@ -90,20 +81,16 @@ class ResidualNet(nn.Module):
         self.input_proj = nn.Linear(N_INPUTS, 64) if N_INPUTS != 64 else nn.Identity()
 
     def forward(self, x_raw):
-        # x_raw is in real units; scale first
         x = (x_raw - self.x_means) / self.x_stds
         x0 = self.input_proj(x)
         x1 = self.drop1(self.act1(self.fc1(x)))
         x2 = self.drop2(self.act2(self.fc2(x1)))
         x_res = x2 + x0
-        y_scaled = self.fc3(x_res)                     # model outputs scaled targets
+        y_scaled = self.fc3(x_res)                    
         y_descaled = y_scaled * self.y_stds + self.y_means
         return y_descaled, y_scaled
 
-
-# ---------------------------
 # Training helper
-# ---------------------------
 def train_model(n_epochs=100, N=5000, batch_size=64, lr=1e-3):
     train_dl, test_dl, stats = prepare_loaders(N=N, batch_size=batch_size)
 
@@ -127,8 +114,7 @@ def train_model(n_epochs=100, N=5000, batch_size=64, lr=1e-3):
         epoch_loss = running / (len(train_dl.dataset))
         if epoch % max(1, n_epochs // 10) == 0 or epoch == 1:
             print(f"[Train] Epoch {epoch}/{n_epochs} loss={epoch_loss:.6f}")
-
-    # quick eval on test set (descaled)
+            
     model.eval()
     with torch.no_grad():
         X_test = stats["X_test"]
@@ -140,9 +126,6 @@ def train_model(n_epochs=100, N=5000, batch_size=64, lr=1e-3):
     return model, stats
 
 
-# ---------------------------
-# NIO: helpers for inference / optimization
-# ---------------------------
 def get_x_from_z_fn(clamp_min, clamp_max):
     """
     returns a function mapping z -> x in real units.
@@ -156,7 +139,6 @@ def get_x_from_z_fn(clamp_min, clamp_max):
 
 
 def soft_box_penalty(x, lower, upper, strength=10.0):
-    # squared hinge outside [lower, upper]
     loss_low = torch.relu(lower - x).pow(2).sum()
     loss_high = torch.relu(x - upper).pow(2).sum()
     return strength * (loss_low + loss_high)
@@ -168,23 +150,17 @@ def regularize_z(z, strength=1e-3):
 
 def constraint_loss(y_pred_scaled, y_target_scaled, mask, overshoot_margin, weights, reg_weight=1e-4,
                     lower_bounds_scaled=None, upper_bounds_scaled=None):
-    """
-    y_pred_scaled: model outputs (scaled) shape [1, n_outputs]
-    y_target_scaled: scaled target (same shape)
-    mask: tensor of codes: 0=no constraint,1=eq,2=>=,3=range
-    overshoot_margin: already scaled by NIO before calling this function.
-    weights: per-output weights
-    """
+
     loss = 0.0
     for i in range(y_pred_scaled.shape[1]):
         w = weights[i]
-        if mask[i] == 1:  # equality
+        if mask[i] == 1: 
             loss = loss + w * (y_pred_scaled[0, i] - y_target_scaled[0, i]) ** 2
-        elif mask[i] == 2:  # >= constraint (penalize undershoot, and large overshoot)
+        elif mask[i] == 2: 
             loss = loss + w * torch.relu(y_target_scaled[0, i] - y_pred_scaled[0, i]) ** 2
             safe_upper = y_target_scaled[0, i] + overshoot_margin[i]
             loss = loss + w * torch.relu(y_pred_scaled[0, i] - safe_upper) ** 2
-        elif mask[i] == 3:  # bounded [lower_bounds_scaled, upper_bounds_scaled]
+        elif mask[i] == 3: 
             a = lower_bounds_scaled[0, i]
             b = upper_bounds_scaled[0, i]
             loss = loss + w * torch.relu(a - y_pred_scaled[0, i]) ** 2
@@ -208,34 +184,19 @@ def nio_optimize(
     z_init=None,
     verbose=False,
 ):
-    """
-    Optimize z (latent) so that model(x) meets the constraints.
-    - model: frozen model (eval mode)
-    - stats: dictionary with scaling stats
-    - target_output_not_scaled: torch tensor shape [1, n_outputs] on DEVICE in real units
-    - clamp_min/max: tensors shape [1, n_inputs] on DEVICE (real units)
-    - constraint_mask: integer tensor shape [n_outputs]
-    - overshoot_margin_not_scaled: tensor shape [n_outputs] (real units)
-    - constraint_weights: tensor shape [n_outputs]
-    Returns final_input (1,n_inputs) and final_output_descaled (1,n_outputs) or (None,None) if fail.
-    """
 
     model = model.to(DEVICE)
     model.eval()
 
-    # convert target and overshoot to scaled space using stats
     y_means = stats["y_means"]
     y_stds = stats["y_stds"]
 
     target_scaled = (target_output_not_scaled.to(DEVICE) - y_means) / y_stds
     overshoot_scaled = overshoot_margin_not_scaled.to(DEVICE) / y_stds
 
-    # Correct bounded-range conversion
     lower_bounds_glob_scaled = (target_output_not_scaled.to(DEVICE) - overshoot_margin_not_scaled.to(DEVICE) - y_means) / y_stds
     upper_bounds_glob_scaled = (target_output_not_scaled.to(DEVICE) + overshoot_margin_not_scaled.to(DEVICE) - y_means) / y_stds
 
-
-    # prepare get_x mapping
     clamp_min = clamp_min.to(DEVICE)
     clamp_max = clamp_max.to(DEVICE)
     get_x_from_z = get_x_from_z_fn(clamp_min, clamp_max)
@@ -246,17 +207,16 @@ def nio_optimize(
         if z_init is None:
             mid = 0.5 * (clamp_min + clamp_max)
             # initialize z so that sigmoid(z) near 0.5 -> x approx mid
-            z0 = torch.logit(torch.full((1, N_INPUTS), 0.5, device=DEVICE) * 0.4 + 0.3)  # keep in stable range
+            z0 = torch.logit(torch.full((1, N_INPUTS), 0.5, device=DEVICE) * 0.4 + 0.3) 
             z = torch.nn.Parameter(z0.clone())
         else:
             z = torch.nn.Parameter(z_init.clone().to(DEVICE))
 
         optimizer_infer = optim.Adam([z], lr=lr)
-        # optional scheduler removed for simplicity
 
         for step in range(max_steps):
             optimizer_infer.zero_grad()
-            x_guess = get_x_from_z(z)                     # real units
+            x_guess = get_x_from_z(z)                     
             y_pred_descaled, y_pred_scaled = model(x_guess)
 
             loss_main = constraint_loss(
@@ -277,7 +237,6 @@ def nio_optimize(
             loss.backward()
             optimizer_infer.step()
 
-            # light clamp of z to avoid extreme logits (optional)
             with torch.no_grad():
                 z.clamp_(min=-10.0, max=10.0)
 
@@ -289,26 +248,24 @@ def nio_optimize(
             final_input = get_x_from_z(z)
             final_output_descaled, final_output_scaled = model(final_input)
 
-        # Check mask conditions in descaled space (since constraints were expressed in real units)
+        # Check mask conditions in descaled space
         violations = torch.zeros_like(final_output_descaled, dtype=torch.bool)
-        # compute violations considering mask types: equality / >= / range
         for i in range(N_OUTPUTS):
-            if constraint_mask[i] == 1:  # equality (allow small tol)
+            if constraint_mask[i] == 1: 
                 tol = 1e-2 * (abs(target_output_not_scaled[0, i]) + 1.0)
                 violations[0, i] = not (abs(final_output_descaled[0, i] - target_output_not_scaled[0, i]) <= tol)
-            elif constraint_mask[i] == 2:  # >=
+            elif constraint_mask[i] == 2:  
                 lower = target_output_not_scaled[0, i]
                 upper = target_output_not_scaled[0, i] + overshoot_margin_not_scaled[i]
                 if final_output_descaled[0, i] < lower - 1e-6 or final_output_descaled[0, i] > upper + 1e-6:
                     violations[0, i] = True
-            elif constraint_mask[i] == 3:  # within [lower_bounds_glob, upper_bounds_glob]
+            elif constraint_mask[i] == 3:  
                 lower_real = target_output_not_scaled[0, i] - overshoot_margin_not_scaled[i]
                 upper_real = target_output_not_scaled[0, i] + overshoot_margin_not_scaled[i]
                 if (final_output_descaled[0, i] < lower_real - 1e-6 or
                     final_output_descaled[0, i] > upper_real + 1e-6):
                     violations[0, i] = True
 
-        # If no violations and an extra domain check (e.g., o_fta safety), accept
         o_fta = final_output_descaled[0, 0].item()
         if not violations.any() and o_fta <= 2100:
             if verbose:
@@ -318,19 +275,16 @@ def nio_optimize(
         if verbose:
             print(f"Attempt {attempt+1} failed; violations: {violations.any().item()}, o_fta={o_fta:.2f}")
 
-    # no feasible solution found
     return None, None
 
 
-# ---------------------------
 # Example run: train + NIO optimize
-# ---------------------------
+
 if __name__ == "__main__":
     # 1) Train
     model, stats = train_model(n_epochs=200, N=5000, batch_size=128, lr=1e-3)
 
-    # 2) Define clamp_min / clamp_max (example values; shape [1, N_INPUTS])
-    # NOTE: use realistic recipe ranges (same units as generator above)
+    # 2) Define clamp_min / clamp_max
     clamp_min = torch.tensor([[
         150., 50., 0.05,
         0., 0., 0., 0.,
@@ -345,12 +299,10 @@ if __name__ == "__main__":
 
 
 
-    # 3) Example target (in real units): sweetness (~0..1), moisture (~0..1), density (~0..1)
-    # But our synthetic outputs are already in roughly 0..1 range; so choose targets in that range.
-    target_output_not_scaled = torch.tensor([[300., 1.0, 600.0]], dtype=torch.float32)  # desired real-unit properties
-    overshoot_margin_not_scaled = torch.tensor([0.05, 0.1, 0.1], dtype=torch.float32)     # allowable overshoot in real units
-    # constraint mask: 2 = >=, 3 = bounded range, 1 = equality, 0 = no constraint
-    constraint_mask = torch.tensor([2, 2, 2], dtype=torch.int32)  # example: require >= for all three
+    # 3) Example target 
+    target_output_not_scaled = torch.tensor([[300., 1.0, 600.0]], dtype=torch.float32) 
+    overshoot_margin_not_scaled = torch.tensor([0.05, 0.1, 0.1], dtype=torch.float32)   
+    constraint_mask = torch.tensor([2, 2, 2], dtype=torch.int32) 
     constraint_weights = torch.tensor([1.0, 3.0, 1.0], dtype=torch.float32)
 
     # 4) Run NIO optimization
@@ -376,6 +328,7 @@ if __name__ == "__main__":
         print({PROPERTIES[i]: float(final_y[0, i]) for i in range(N_OUTPUTS)})
     else:
         print("No feasible input found.")
+
 
 
 
